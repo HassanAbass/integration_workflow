@@ -25,6 +25,7 @@ jobs:
         steps:
             - checkout
             - run: cat output.txt
+            - run: ls /tmp/hello
             - attach_workspace:
                   at: /tmp/hello
 
