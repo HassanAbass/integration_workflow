@@ -2,30 +2,38 @@
 # See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/2.0/configuration-reference/#jobs
+defaults: &machine
+    docker:
+        - image: circleci/node:13.8.0
+
+commands:
+    print_pipeline_id:
+        description:  prints the Circle CI Workflow ID from its environment variable
+        # parameters:
+        #     to:
+        #         default: "world"
+        #         type: string
+        steps:
+            - run: echo "Hello $CIRCLE_WORKFLOW_ID"
+
 jobs:
     save_hello_world_output:
-        # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
-        # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
-        docker:
-            - image: cimg/node:17.2.0
+        <<: *machine
         steps:
             - checkout
-            - run: pwd
-            - run: echo "text to output here" > output.txt; cp output.txt ~/
-            - persist_to_workspace:
-                  root: ~/
-                  paths:
-                      - output.txt
-    print_output_file:
-        docker:
-            - image: cimg/node:17.2.0
-        steps:
-            - checkout
-            - attach_workspace:
-                  at: ~/
-            - run: cat ~/output.txt
+            - print_pipeline_id
+            # - run: echo "text to output here" > output.txt; cp output.txt ~/
+            # - persist_to_workspace:
+            #       root: ~/
+            #       paths:
+            #           - output.txt
+    # print_output_file:
+    #     <<: *machine
+    #     steps:
+    #         - checkout
+    #         - attach_workspace:
+    #               at: ~/
+    #         - run: cat ~/output.txt
 
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
@@ -33,6 +41,6 @@ workflows:
     say-hello-workflow:
         jobs:
             - save_hello_world_output
-            - print_output_file:
-                  requires:
-                      - save_hello_world_output
+            # - print_output_file:
+            #       requires:
+            #           - save_hello_world_output
