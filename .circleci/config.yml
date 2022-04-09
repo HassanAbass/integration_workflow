@@ -22,7 +22,11 @@ jobs:
         steps:
             - checkout
             - print_pipeline_id:
-                  id: $CIRCLE_WORKFLOW_ID
+                  id: <<pipeline.id>>
+            - run: return 1
+            - run:
+                  command: echo "project has failed"
+                  when: on_fail
             # - run: echo "text to output here" > output.txt; cp output.txt ~/
             # - persist_to_workspace:
             #       root: ~/
