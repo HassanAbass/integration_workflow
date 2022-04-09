@@ -8,20 +8,21 @@ defaults: &machine
 
 commands:
     print_pipeline_id:
-        description:  prints the Circle CI Workflow ID from its environment variable
-        # parameters:
-        #     to:
-        #         default: "world"
-        #         type: string
+        description: prints the Circle CI Workflow ID from its environment variable
+        parameters:
+            id:
+                default: "workflow id"
+                type: string
         steps:
-            - run: echo "Hello $CIRCLE_WORKFLOW_ID"
+            - run: echo "id =  << parameters.id >>"
 
 jobs:
     save_hello_world_output:
         <<: *machine
         steps:
             - checkout
-            - print_pipeline_id
+            - print_pipeline_id:
+                  id: $CIRCLE_WORKFLOW_ID
             # - run: echo "text to output here" > output.txt; cp output.txt ~/
             # - persist_to_workspace:
             #       root: ~/
