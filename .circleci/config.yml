@@ -15,7 +15,7 @@ jobs:
             - run: pwd
             - run: echo "text to output here" > output.txt
             - persist_to_workspace:
-                  root: /tmp/workspace
+                  root: /tmp
                   paths:
                       - output.txt
     print_output_file:
@@ -25,7 +25,7 @@ jobs:
             - checkout
             - run: cat output.txt
             - attach_workspace:
-                  at: /tmp/workspace
+                  at: /tmp
 
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
