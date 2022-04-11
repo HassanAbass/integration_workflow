@@ -15,7 +15,8 @@ commands:
           # ${CIRCLE_WORKFLOW_ID:0:5} takes the first 5 chars of the variable CIRCLE_CI_WORKFLOW_ID
           when: on_fail
           command: |
-            aws cloudformation delete-stack --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:5}
+            aws cloudformation delete-stack --stack-name myStack-72503
+            echo myStack-${CIRCLE_WORKFLOW_ID:0:5}
 #     print_pipeline_id:
 #         description: prints the Circle CI Workflow ID from its environment variable
 #         parameters:
