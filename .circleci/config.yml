@@ -2,31 +2,33 @@
 # See: https://circleci.com/docs/2.0/configuration-reference
 version: 2.1
 
-defaults: &machine
-    docker:
-        - image: circleci/node:13.8.0
+# defaults: &machine
+#     docker:
+#         - image: circleci/node:13.8.0
 
-commands:
-    print_pipeline_id:
-        description: prints the Circle CI Workflow ID from its environment variable
-        parameters:
-            id:
-                default: "workflow id"
-                type: string
-        steps:
-            - run: echo "id =  << parameters.id >>"
+# commands:
+#     print_pipeline_id:
+#         description: prints the Circle CI Workflow ID from its environment variable
+#         parameters:
+#             id:
+#                 default: "workflow id"
+#                 type: string
+#         steps:
+#             - run: echo "id =  << parameters.id >>"
 
 jobs:
-    save_hello_world_output:
-        <<: *machine
-        steps:
-            - checkout
-            - print_pipeline_id:
-                  id: <<pipeline.id>>
-            - run: return 1
-            - run:
-                  command: echo "project has failed"
-                  when: on_fail
+    create_infrastructure: 
+      docker:
+        - image: amazon/aws-cli
+      steps:
+        - checkout
+        - run:
+            name: Create Cloudformation Stack
+            command: |
+              aws cloudformation deploy \
+                --template-file ec2.yml \
+                --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:5} \
+                --region us-east-1
             # - run: echo "text to output here" > output.txt; cp output.txt ~/
             # - persist_to_workspace:
             #       root: ~/
@@ -43,9 +45,9 @@ jobs:
 # Invoke jobs via workflows
 # See: https://circleci.com/docs/2.0/configuration-reference/#workflows
 workflows:
-    say-hello-workflow:
+    provision ec2, sg instance:
         jobs:
-            - save_hello_world_output
+            - create_infrastructure
             # - print_output_file:
             #       requires:
             #           - save_hello_world_output
