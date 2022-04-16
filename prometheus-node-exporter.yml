@@ -1,0 +1,69 @@
+Resources:
+  ec2securitygroupDemo:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: nodeExporterScGr
+      GroupDescription: allow all web traffic
+      VpcId: vpc-07edef8e259613ff8
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 9090
+          ToPort: 9090
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 9100 
+          ToPort: 9100 
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 9093 
+          ToPort: 9093 
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+  ec2Demo:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-04505e74c0741db8d
+      KeyName: ec2-udemy-key
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: "0"
+          GroupSet:
+            - !Ref ec2securitygroupDemo
+          SubnetId: subnet-0f0d96368795e0aa0
+      Tags:
+        - Key: Name
+          Value: Prometheus node exporter
+      UserData:  
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo useradd --no-create-home node_exporter
+          wget https://github.com/prometheus/node_exporter/releases/download/v1.0.1/node_exporter-1.0.1.linux-amd64.tar.gz
+          tar xzf node_exporter-1.0.1.linux-amd64.tar.gz
+          sudo cp node_exporter-1.0.1.linux-amd64/node_exporter /usr/local/bin/node_exporter
+          rm -rf node_exporter-1.0.1.linux-amd64.tar.gz node_exporter-1.0.1.linux-amd64
+
+          sudo cat << EoF > /etc/systemd/system/node-exporter.service
+          [Unit]
+          Description=Prometheus Node Exporter Service
+          After=network.target
+
+          [Service]
+          User=node_exporter
+          Group=node_exporter
+          Type=simple
+          ExecStart=/usr/local/bin/node_exporter
+
+          [Install]
+          WantedBy=multi-user.target
+          EoF
+
+          sudo systemctl daemon-reload
+          sudo systemctl enable node-exporter
+          sudo systemctl start node-exporter

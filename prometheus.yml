@@ -1,0 +1,184 @@
+Resources:
+  ec2securitygroupDemo:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: demoScGr
+      GroupDescription: allow all web traffic
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 9090
+          ToPort: 9090
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 9100 
+          ToPort: 9100 
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 9093 
+          ToPort: 9093 
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+  ec2Demo:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-04505e74c0741db8d
+      KeyName: ec2-udemy-key
+      Tags:
+        - Key: Name
+          Value: Prometheus
+      UserData:  
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          sudo useradd --no-create-home prometheus
+          sudo mkdir /etc/prometheus
+          sudo mkdir /var/lib/prometheus
+          wget https://github.com/prometheus/prometheus/releases/download/v2.19.0/prometheus-2.19.0.linux-amd64.tar.gz
+          tar xvfz prometheus-2.19.0.linux-amd64.tar.gz
+
+          sudo cp prometheus-2.19.0.linux-amd64/prometheus /usr/local/bin
+          sudo cp prometheus-2.19.0.linux-amd64/promtool /usr/local/bin/
+          sudo cp -r prometheus-2.19.0.linux-amd64/consoles /etc/prometheus
+          sudo cp -r prometheus-2.19.0.linux-amd64/console_libraries /etc/prometheus
+
+          sudo cp prometheus-2.19.0.linux-amd64/promtool /usr/local/bin/
+          rm -rf prometheus-2.19.0.linux-amd64.tar.gz prometheus-2.19.0.linux-amd64
+
+          sudo cat << EoF > /etc/prometheus/prometheus.yml
+          global:
+            scrape_interval: 15s
+            evaluation_interval: 1s
+            external_labels:
+              monitor: 'prometheus'
+
+          rule_files:
+            - "prometheus_rules.yml"
+          
+          alerting:
+            alertmanagers:
+            - static_configs:
+              - targets:
+                - localhost:9093
+
+          scrape_configs:
+            - job_name: 'uda people'
+              static_configs:
+                - targets: ['ec2-54-164-212-108.compute-1.amazonaws.com:9100']
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9100']
+            
+            # - job_name: 'node'
+            #   ec2_sd_configs:
+            #     - region: us-east-1
+            #       access_key: AKIARRVMZFLDM6ZWUUAX
+            #       secret_key: 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
+                  # port: 9100 
+
+          EoF
+
+          sudo cat << EoF > /etc/prometheus/prometheus_rules.yml
+          groups:
+            - name: UsingTooMuchMemory
+              rules:
+                - alert: UsingTooMuchMemory
+                  expr: node_memory_MemFree_bytes < 1000000
+                  for: 1m
+                  labels:
+                    severity: critical
+                  annotations:
+                    title: 'Instance {{$labels.instance}} is almost out of memory'
+                    description: '{{$labels.instance}} of job {{$labels.job}} has been down'
+                - alert: InstanceDown
+                  expr: up == 0
+                  for: 1m
+                  labels:
+                    severity: 'critical'
+                  annotations:
+                    title: "Instance {{$labels.instance}} is down"
+                    description: "{{$labels.instance}} has been down for more than 1 minutes."
+          EoF
+
+          sudo cat << EoF > /etc/systemd/system/prometheus.service
+          [Unit]
+          Description=Prometheus
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          User=prometheus
+          Group=prometheus
+          Type=simple
+          ExecStart=/usr/local/bin/prometheus \
+              --config.file /etc/prometheus/prometheus.yml \
+              --storage.tsdb.path /var/lib/prometheus/ \
+              --web.console.templates=/etc/prometheus/consoles \
+              --web.console.libraries=/etc/prometheus/console_libraries
+
+          [Install]
+          WantedBy=multi-user.target
+          EoF
+
+          sudo chown prometheus:prometheus /etc/prometheus
+          sudo chown prometheus:prometheus /usr/local/bin/prometheus
+          sudo chown prometheus:prometheus /usr/local/bin/promtool
+          sudo chown -R prometheus:prometheus /etc/prometheus/consoles
+          sudo chown -R prometheus:prometheus /etc/prometheus/console_libraries
+          sudo chown -R prometheus:prometheus /var/lib/prometheus
+
+          sudo systemctl daemon-reload
+          sudo systemctl enable prometheus
+          sudo systemctl start prometheus
+
+          # Install Alertmanager.
+          wget https://github.com/prometheus/alertmanager/releases/download/v0.21.0/alertmanager-0.21.0.linux-amd64.tar.gz
+          tar xvfz alertmanager-0.21.0.linux-amd64.tar.gz
+
+          sudo cp alertmanager-0.21.0.linux-amd64/alertmanager /usr/local/bin
+          sudo cp alertmanager-0.21.0.linux-amd64/amtool /usr/local/bin/
+          sudo mkdir /var/lib/alertmanager
+
+          rm -rf alertmanager*
+
+          # Add Alertmanager’s configuration /etc/prometheus/alertmanager.yml.
+          sudo cat << EoF > /etc/prometheus/alertmanager.yml
+          global:
+            resolve_timeout: 1m
+            slack_api_url: https://hooks.slack.com/services/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
+          route:
+            receiver: 'slack-notifications' 
+          receivers:
+            - name: 'slack-notifications'
+              slack_configs:
+                - channel: 'HassanAbas'
+                  text: "{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}"
+                  send_resolved: true
+          EoF
+
+          #Configure Alertmanager as a service.
+          sudo cat << EoF > /etc/systemd/system/alertmanager.service
+          [Unit]
+          Description=Alert Manager
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=simple
+          User=prometheus
+          Group=prometheus
+          ExecStart=/usr/local/bin/alertmanager \
+            --config.file=/etc/prometheus/alertmanager.yml \
+            --storage.path=/var/lib/alertmanager
+
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+          EoF
+
+          sudo systemctl daemon-reload
+          sudo systemctl enable alertmanager
+          sudo systemctl start alertmanager
